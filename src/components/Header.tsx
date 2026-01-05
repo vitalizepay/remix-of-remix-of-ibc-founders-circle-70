@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import ibcLogo from '@/assets/ibc-logo.png';
@@ -20,13 +21,20 @@ const Header = () => {
     { href: '#flywheel', label: 'How It Works' },
     { href: '#membership', label: 'Membership' },
     { href: '#plans', label: 'Plans' },
+    { href: '/events', label: 'Events', isRoute: true },
     { href: '#contact', label: 'Contact' },
   ];
 
-  const scrollToSection = (href: string) => {
-    const element = document.querySelector(href);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  const navigate = useNavigate();
+
+  const handleNavClick = (href: string, isRoute?: boolean) => {
+    if (isRoute) {
+      navigate(href);
+    } else {
+      const element = document.querySelector(href);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
     }
     setIsMobileMenuOpen(false);
   };
@@ -54,7 +62,7 @@ const Header = () => {
           {navLinks.map((link) => (
             <button
               key={link.href}
-              onClick={() => scrollToSection(link.href)}
+              onClick={() => handleNavClick(link.href, link.isRoute)}
               className="text-sm font-medium text-foreground/80 hover:text-primary transition-colors"
             >
               {link.label}
@@ -67,7 +75,7 @@ const Header = () => {
           <Button
             variant="hero"
             size="default"
-            onClick={() => scrollToSection('#apply')}
+            onClick={() => handleNavClick('#apply')}
           >
             Apply to Join
           </Button>
@@ -89,7 +97,7 @@ const Header = () => {
             {navLinks.map((link) => (
               <button
                 key={link.href}
-                onClick={() => scrollToSection(link.href)}
+                onClick={() => handleNavClick(link.href, link.isRoute)}
                 className="text-left py-2 text-foreground/80 hover:text-primary transition-colors font-medium"
               >
                 {link.label}
@@ -98,7 +106,7 @@ const Header = () => {
             <Button
               variant="hero"
               className="mt-4 w-full"
-              onClick={() => scrollToSection('#apply')}
+              onClick={() => handleNavClick('#apply')}
             >
               Apply to Join
             </Button>

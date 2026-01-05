@@ -23,7 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/the-monk-exponential-leadership" element={<TheMonkEvent />} />
+            <Route path="/events" element={<TheMonkEvent />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
