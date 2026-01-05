@@ -1,1 +1,7 @@
 project_id = "nxnualuabyawwxeibhok"
+
+[functions.send-inquiry-email]
+verify_jwt = false
+
+[functions.send-monk-registration-email]
+verify_jwt = false

@@ -167,6 +167,45 @@ export type Database = {
         }
         Relationships: []
       }
+      monk_registrations: {
+        Row: {
+          company_name: string
+          company_website: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_ibc_member: boolean
+          notes: string | null
+          phone_number: string
+          role_designation: string
+        }
+        Insert: {
+          company_name: string
+          company_website?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          is_ibc_member?: boolean
+          notes?: string | null
+          phone_number: string
+          role_designation: string
+        }
+        Update: {
+          company_name?: string
+          company_website?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_ibc_member?: boolean
+          notes?: string | null
+          phone_number?: string
+          role_designation?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
