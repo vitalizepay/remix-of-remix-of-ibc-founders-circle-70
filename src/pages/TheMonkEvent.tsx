@@ -1,4 +1,7 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import MonkHeroSection from '@/components/monk/MonkHeroSection';
 import MonkOverviewSection from '@/components/monk/MonkOverviewSection';
 import MonkPricingSection from '@/components/monk/MonkPricingSection';
@@ -24,6 +27,16 @@ const TheMonkEvent = () => {
 
   return (
     <main className="min-h-screen bg-background">
+      {/* Home Link */}
+      <div className="fixed top-4 left-4 z-50">
+        <Button asChild variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm shadow-md">
+          <Link to="/" className="flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            Home
+          </Link>
+        </Button>
+      </div>
+      
       <MonkHeroSection />
       <MonkOverviewSection />
       <MonkPricingSection />
