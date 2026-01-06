@@ -188,7 +188,7 @@ const handler = async (req: Request): Promise<Response> => {
         html: emailHtml,
       }),
     });
-
+ 
     console.log("📨 Resend status:", res.status);
 
     const resText = await res.text();
