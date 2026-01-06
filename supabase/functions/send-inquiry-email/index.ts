@@ -154,8 +154,8 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         from: "IBC Membership <onboarding@resend.dev>",
-        to: ["praveen@ibcgulf.com"],
-        subject: `New IBC Membership Inquiry from ${escapeHtml(data.full_name)}`,
+        to: ["applications@ibcgulf.com"],
+        subject: "New Application Received – IBC Gulf",
         html: emailHtml,
       }),
     });
