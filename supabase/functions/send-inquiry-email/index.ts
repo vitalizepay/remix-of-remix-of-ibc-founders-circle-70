@@ -181,7 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "IBC Membership <no-reply@ibcgulf.com>",
+        from: "IBC Membership <onboarding@resend.dev>",
         to: ["applications@ibcgulf.com"],
         reply_to: "applications@ibcgulf.com",
         subject: "New Application Received – IBC Gulf",
