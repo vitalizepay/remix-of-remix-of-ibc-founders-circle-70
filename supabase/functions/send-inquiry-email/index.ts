@@ -1,54 +1,66 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
+/* ================================
+   ENV
+================================ */
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
+/* ================================
+   CORS
+================================ */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
-// Simple in-memory rate limiting (per IP, resets on function cold start)
+/* ================================
+   RATE LIMITING
+================================ */
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_MAX = 5; // Max requests per window
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour window
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
-  
+
   if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    rateLimitMap.set(ip, {
+      count: 1,
+      resetTime: now + RATE_LIMIT_WINDOW_MS,
+    });
     return true;
   }
-  
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-  
+
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+
   entry.count++;
   return true;
 }
 
-// HTML escape function to prevent XSS
-function escapeHtml(text: string | number | boolean | null | undefined): string {
-  if (text === null || text === undefined) {
-    return '';
-  }
-  const str = String(text);
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+/* ================================
+   UTILITIES
+================================ */
+function escapeHtml(
+  text: string | number | boolean | null | undefined
+): string {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-// Email validation
 function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email) && email.length <= 255;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 255;
 }
 
+/* ================================
+   TYPES
+================================ */
 interface InquiryEmailRequest {
   full_name: string;
   email: string;
@@ -69,23 +81,36 @@ interface InquiryEmailRequest {
   ibc_stories_interest?: string;
 }
 
+/* ================================
+   HANDLER
+================================ */
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-inquiry-email function called");
+  console.log("📩 send-inquiry-email called");
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Get client IP for rate limiting
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-                   req.headers.get("cf-connecting-ip") || 
-                   "unknown";
-  
-  // Check rate limit
-  if (!checkRateLimit(clientIp)) {
-    console.log("Rate limit exceeded for IP:", clientIp);
+  /* ---- HARD ENV GUARD (CRITICAL) ---- */
+  if (!RESEND_API_KEY) {
+    console.error("❌ RESEND_API_KEY is missing at runtime");
     return new Response(
-      JSON.stringify({ error: "Too many requests. Please try again later." }),
+      JSON.stringify({ error: "Email service not configured" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+
+  const clientIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown";
+
+  if (!checkRateLimit(clientIp)) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests" }),
       {
         status: 429,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -95,57 +120,60 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const data: InquiryEmailRequest = await req.json();
-    
-    // Server-side validation
-    if (!data.full_name || typeof data.full_name !== 'string' || data.full_name.length > 200) {
-      throw new Error("Invalid full name");
-    }
-    if (!data.email || !isValidEmail(data.email)) {
-      throw new Error("Invalid email address");
-    }
-    if (!data.mobile_number || typeof data.mobile_number !== 'string' || data.mobile_number.length > 20) {
-      throw new Error("Invalid mobile number");
-    }
-    if (!data.company_name || typeof data.company_name !== 'string' || data.company_name.length > 200) {
-      throw new Error("Invalid company name");
-    }
-    
-    console.log("Received inquiry data for:", escapeHtml(data.full_name));
 
-    // Build email HTML with escaped user input
+    /* ---- VALIDATION ---- */
+    if (!data.full_name || data.full_name.length > 200)
+      throw new Error("Invalid full name");
+
+    if (!isValidEmail(data.email))
+      throw new Error("Invalid email address");
+
+    if (!data.mobile_number || data.mobile_number.length > 20)
+      throw new Error("Invalid mobile number");
+
+    if (!data.company_name || data.company_name.length > 200)
+      throw new Error("Invalid company name");
+
+    console.log("✅ Valid inquiry from:", data.full_name);
+
+    /* ---- EMAIL HTML ---- */
     const emailHtml = `
       <h1>New IBC Membership Inquiry</h1>
-      
-      <h2>Personal &amp; Business Details</h2>
-      <table style="border-collapse: collapse; width: 100%;">
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Full Name</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.full_name)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Email</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.email)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Mobile</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.mobile_number)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Company</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.company_name)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Role</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.role_designation)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Industry</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.industry)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Years in Business</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.years_in_business)}</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>Website/LinkedIn</strong></td><td style="padding: 8px; border: 1px solid #ddd;">${escapeHtml(data.website_or_linkedin) || 'N/A'}</td></tr>
-      </table>
 
-      <h2>Business Overview</h2>
-      <p><strong>Description:</strong> ${escapeHtml(data.business_description)}</p>
-      <p><strong>Stage:</strong> ${escapeHtml(data.business_stage)}</p>
+      <h3>Applicant Details</h3>
+      <ul>
+        <li><b>Name:</b> ${escapeHtml(data.full_name)}</li>
+        <li><b>Email:</b> ${escapeHtml(data.email)}</li>
+        <li><b>Mobile:</b> ${escapeHtml(data.mobile_number)}</li>
+        <li><b>Company:</b> ${escapeHtml(data.company_name)}</li>
+        <li><b>Role:</b> ${escapeHtml(data.role_designation)}</li>
+        <li><b>Industry:</b> ${escapeHtml(data.industry)}</li>
+        <li><b>Years in Business:</b> ${escapeHtml(data.years_in_business)}</li>
+        <li><b>Website / LinkedIn:</b> ${escapeHtml(
+          data.website_or_linkedin || "N/A"
+        )}</li>
+      </ul>
 
-      <h2>Community Fit</h2>
-      <p><strong>Reason to Join:</strong> ${escapeHtml(data.reason_to_join)}</p>
-      <p><strong>Expected Gain:</strong> ${escapeHtml(data.expected_gain)}</p>
-      <p><strong>Contribution:</strong> ${escapeHtml(data.contribution_to_community)}</p>
+      <h3>Business Overview</h3>
+      <p>${escapeHtml(data.business_description)}</p>
 
-      <h2>Membership</h2>
-      <p><strong>Type:</strong> ${escapeHtml(data.membership_type)}</p>
+      <h3>Why IBC</h3>
+      <p><b>Reason:</b> ${escapeHtml(data.reason_to_join)}</p>
+      <p><b>Expected Gain:</b> ${escapeHtml(data.expected_gain)}</p>
+      <p><b>Contribution:</b> ${escapeHtml(
+        data.contribution_to_community
+      )}</p>
 
-      <h2>Engagement</h2>
-      <p><strong>Participate in Events:</strong> ${data.participate_in_events ? 'Yes' : 'No'}</p>
-      <p><strong>Understands Curation:</strong> ${data.understands_curation ? 'Yes' : 'No'}</p>
-      <p><strong>IBC Stories Interest:</strong> ${escapeHtml(data.ibc_stories_interest) || 'Not specified'}</p>
+      <h3>Engagement</h3>
+      <p>Participate in Events: ${
+        data.participate_in_events ? "Yes" : "No"
+      }</p>
+      <p>Understands Curation: ${
+        data.understands_curation ? "Yes" : "No"
+      }</p>
     `;
 
+    /* ---- SEND VIA RESEND ---- */
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -155,28 +183,29 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: "IBC Membership <no-reply@ibcgulf.com>",
         to: ["applications@ibcgulf.com"],
+        reply_to: "applications@ibcgulf.com",
         subject: "New Application Received – IBC Gulf",
         html: emailHtml,
       }),
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Resend API error:", errorText);
-      throw new Error(`Failed to send email: ${errorText}`);
-    }
+    console.log("📨 Resend status:", res.status);
 
-    const emailResponse = await res.json();
-    console.log("Email sent successfully:", emailResponse);
+    const resText = await res.text();
+    console.log("📨 Resend response:", resText);
+
+    if (!res.ok) {
+      throw new Error(`Resend failed ${res.status}: ${resText}`);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-  } catch (error: any) {
-    console.error("Error sending inquiry email:", error);
+  } catch (err: any) {
+    console.error("🔥 Function error:", err.message);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
