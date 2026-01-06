@@ -22,7 +22,7 @@ const registrationSchema = z.object({
   email: z.string().email('Please enter a valid email').max(255),
   phone_number: z.string().min(8, 'Please enter a valid phone number').max(30),
   company_name: z.string().min(2, 'Company name is required').max(200),
-  company_website: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
+  company_website: z.string().max(255).optional().or(z.literal('')),
   role_designation: z.string().min(2, 'Role/Designation is required').max(100),
   is_ibc_member: z.boolean(),
   notes: z.string().max(1000).optional(),
@@ -212,8 +212,8 @@ const MonkRegistrationForm = () => {
                 <Label htmlFor="company_website">Company Website</Label>
                 <Input
                   id="company_website"
-                  type="url"
-                  placeholder="https://yourcompany.com"
+                  type="text"
+                  placeholder="yourcompany.com or N/A"
                   {...register('company_website')}
                   className={errors.company_website ? 'border-destructive' : ''}
                 />
