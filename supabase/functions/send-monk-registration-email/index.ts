@@ -147,7 +147,7 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: "The Monk Event <onboarding@resend.dev>",
         to: ["applications@ibcgulf.com"],
-        subject: `New Registration: The Monk - ${escapeHtml(data.full_name)}`,
+        subject: "New Application Received – IBC Gulf",
         html: emailHtml,
       }),
     });
