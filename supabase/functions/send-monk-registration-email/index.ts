@@ -161,7 +161,57 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await res.json();
     console.log("Email sent successfully:", emailResponse);
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Send a confirmation email to the registrant as well
+    let confirmationSent = false;
+    try {
+      const confirmationHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1a4d3e 0%, #2d5a4a 100%); padding: 24px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">The Monk</h1>
+            <p style="color: #d4af37; margin: 8px 0 0 0; font-size: 16px;">Exponential Leadership</p>
+          </div>
+
+          <div style="padding: 24px; background: #f9f7f4;">
+            <h2 style="color: #1a4d3e; margin: 0 0 12px 0;">Registration received</h2>
+            <p style="margin: 0 0 12px 0;">Hi ${escapeHtml(data.full_name)},</p>
+            <p style="margin: 0 0 12px 0;">Thank you for registering. We’ve received your details and our team will reach out with next steps.</p>
+
+            <div style="background: #fff; border-radius: 8px; padding: 14px;">
+              <p style="margin: 0;"><b>Company:</b> ${escapeHtml(data.company_name)}</p>
+              <p style="margin: 6px 0 0 0;"><b>IBC Member:</b> ${data.is_ibc_member ? "Yes" : "No"}</p>
+              <p style="margin: 6px 0 0 0;"><b>Applicable Price:</b> ${escapeHtml(pricingInfo)}</p>
+            </div>
+
+            <p style="margin: 12px 0 0 0; font-size: 13px; color: #666;">If you did not submit this registration, you can ignore this email.</p>
+          </div>
+        </div>
+      `;
+
+      const res2 = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: "The Monk Event <no-reply@ibcgulf.com>",
+          to: [data.email],
+          subject: "We received your registration – IBC Gulf",
+          html: confirmationHtml,
+        }),
+      });
+
+      if (!res2.ok) {
+        const err2 = await res2.text();
+        console.error("Registrant confirmation email failed:", err2);
+      } else {
+        confirmationSent = true;
+      }
+    } catch (e) {
+      console.error("Failed to send registrant confirmation email:", e);
+    }
+
+    return new Response(JSON.stringify({ success: true, confirmation_sent: confirmationSent }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
