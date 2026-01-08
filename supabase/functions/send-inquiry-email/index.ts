@@ -198,10 +198,52 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Resend failed ${res.status}: ${resText}`);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    // Send a confirmation email to the applicant as well
+    let confirmationSent = false;
+    try {
+      const confirmationHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="margin: 0 0 12px 0;">We received your application</h2>
+          <p style="margin: 0 0 12px 0;">Hi ${escapeHtml(data.full_name)},</p>
+          <p style="margin: 0 0 12px 0;">Thank you for your IBC membership application. Our team has received your submission and will review it shortly.</p>
+          <div style="background: #f6f6f6; padding: 12px; border-radius: 8px;">
+            <p style="margin: 0;"><b>Company:</b> ${escapeHtml(data.company_name)}</p>
+            <p style="margin: 6px 0 0 0;"><b>Role:</b> ${escapeHtml(data.role_designation)}</p>
+          </div>
+          <p style="margin: 12px 0 0 0; font-size: 13px; color: #666;">If you did not submit this application, you can ignore this email.</p>
+        </div>
+      `;
+
+      const res2 = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: "IBC Membership <onboarding@resend.dev>",
+          to: [data.email],
+          reply_to: "applications@ibcgulf.com",
+          subject: "We received your application – IBC Gulf",
+          html: confirmationHtml,
+        }),
+      });
+
+      const res2Text = await res2.text();
+      console.log("📨 Applicant confirmation status:", res2.status);
+      console.log("📨 Applicant confirmation response:", res2Text);
+      confirmationSent = res2.ok;
+    } catch (e) {
+      console.error("⚠️ Failed to send applicant confirmation email:", e);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, confirmation_sent: confirmationSent }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
   } catch (err: any) {
     console.error("🔥 Function error:", err.message);
     return new Response(
