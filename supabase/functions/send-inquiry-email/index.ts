@@ -182,7 +182,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         from: "IBC Membership <no-reply@ibcgulf.com>",
-        to: ["applications@ibcgulf.com"],
+        to: ["applications@ibcgulf.com", "praveen@ibcgulf.com"],
         reply_to: "applications@ibcgulf.com",
         subject: "New Application Received – IBC Gulf",
         html: emailHtml,
